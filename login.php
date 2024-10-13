@@ -1,39 +1,45 @@
 <?php
-    session_start();
-    require 'db_connect.php';
+session_start();
+require 'db_connect.php';
 
-    // Cek login
-    if (isset($_SESSION['login'])) {
-        header('location: sewa.php');
-        exit;
+// Cek login
+if (isset($_SESSION['login'])) {
+    header('location: sewa.php');
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $username = $_POST['username'];
+    $password = $_POST['password'];
+
+    // Register
+    if (isset($_POST['register'])) {
+        $stmt = $conn->prepare("INSERT INTO user (username, password) VALUES (?, ?)");
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $stmt->bind_param("ss", $username, $hashedPassword);
+        $stmt->execute();
+        echo "Register berhasil. Silakan Login";
+        $stmt->close();
     }
 
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        $username = $_POST['username'];
-        $password = $_POST['password'];
+    // Login tanpa register
+    if (isset($_POST['login'])) {
+        $stmt = $conn->prepare("SELECT * FROM user WHERE username = ?");
+        $stmt->bind_param("s", $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user = $result->fetch_assoc();
 
-        // Register
-        if (isset($_POST['register'])) {
-            $stmt = $pdo->prepare("INSERT INTO user (username, password) VALUES (:username, :password)");
-            $stmt->execute(['username' => $username, 'password' => password_hash($password, PASSWORD_DEFAULT)]);
-            echo "Register berhasil. Silakan Login";
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['login'] = $username;
+            header('location: sewa.php');
+            exit;
+        } else {
+            echo "Anda belum melakukan registrasi. Mohon registrasi terlebih dahulu.";
         }
-
-        // Login tanpa register
-        if (isset($_POST['login'])) {
-            $stmt = $pdo->prepare("SELECT * FROM user WHERE username = :username");
-            $stmt->execute(['username' => $username]);
-            $user = $stmt->fetch();
-
-            if ($user && password_verify($password, $user['password'])) {
-                $_SESSION['login'] = $username;
-                header('location: sewa.php');
-                exit;
-            } else {
-                echo "Username atau password salah, atau Anda belum terdaftar.";
-            }
-        }
+        $stmt->close();
     }
+}
 ?>
 
 <html lang="en">

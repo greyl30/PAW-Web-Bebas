@@ -1,17 +1,13 @@
 <?php
-    $host = 'localhost';
-    $db = 'rental';
-    $user = 'root'; 
-    $pass = ''; 
+    $host = 'localhost'; 
+    $username = 'root'; 
+    $password = ''; 
+    $database = 'rental';
 
-    try 
-    {
-        $pdo = new PDO("mysql:host=$host;dbname=$db", $user, $pass);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    } 
-    
-    catch (PDOException $e) 
-    {
-        die("Koneksi database gagal: " . $e->getMessage());
+    // Koneksi ke database
+    $conn = new mysqli($host, $username, $password, $database);
+
+    if ($conn->connect_error) {
+        die("Koneksi gagal: " . $conn->connect_error);
     }
 ?>

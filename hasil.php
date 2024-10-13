@@ -1,23 +1,26 @@
 <?php
-    session_start();
+session_start();
 
-    // Cek login
-    if (!isset($_SESSION['login'])) {
-        header('Location: login.php');
-        exit;
-    }
-    require 'db_connect.php';
+// Cek login
+if (!isset($_SESSION['login'])) {
+    header('Location: login.php');
+    exit;
+}
 
-    // Ambil data sewa dari database
-    $currentUser = $_SESSION['login'];
-    $sql = "SELECT ps_list.name FROM sewa 
-            INNER JOIN ps_list ON sewa.ps_id = ps_list.id
-            WHERE sewa.user_id = (SELECT id FROM user WHERE username = :username)";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(['username' => $currentUser]);
-    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+require 'db_connect.php'; 
+
+// Ambil data sewa dari database
+$currentUser = $_SESSION['login'];
+$sql = "SELECT ps_list.name FROM sewa 
+        INNER JOIN ps_list ON sewa.ps_id = ps_list.id
+        WHERE sewa.user_id = (SELECT id FROM user WHERE username = ?)";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param('s', $currentUser);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -30,8 +33,8 @@
     <h2>Barang yang Disewa</h2>
     <ul>
         <?php
-        if ($result) {
-            foreach ($result as $row) {
+        if ($result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
                 echo "<li>" . htmlspecialchars($row['name']) . "</li>";
             }
         } else {

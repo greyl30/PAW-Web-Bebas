@@ -1,71 +1,78 @@
 <?php
-    session_start();
-    require 'db_connect.php';
+session_start();
+require 'db_connect.php';
 
-    // Cek login
-    if (!isset($_SESSION['login'])) {
-        header('Location: login.php');
-        exit;
-    }
+// Cek login
+if (!isset($_SESSION['login'])) {
+    header('Location: login.php');
+    exit;
+}
 
-    $currentUser = $_SESSION['login'];
+$currentUser = $_SESSION['login'];
 
-    // Ambil daftar PlayStation dari database
-    $stmt = $pdo->query("SELECT * FROM ps_list");
-    $psList = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Ambil daftar PlayStation dari database
+$stmt = $conn->query("SELECT * FROM ps_list");
+$psList = $stmt->fetch_all(MYSQLI_ASSOC);
 
-    // Ambil data sewa dari database
-    $stmt = $pdo->prepare("SELECT ps_list.* FROM sewa JOIN ps_list ON sewa.ps_id = ps_list.id WHERE sewa.user_id = (SELECT id FROM user WHERE username = :username)");
-    $stmt->execute(['username' => $currentUser]);
-    $dataSewa = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// Ambil data sewa dari database
+$stmt = $conn->prepare("SELECT ps_list.* FROM sewa JOIN ps_list ON sewa.ps_id = ps_list.id WHERE sewa.user_id = (SELECT id FROM user WHERE username = ?)");
+$stmt->bind_param('s', $currentUser);
+$stmt->execute();
+$dataSewa = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-    // Proses sewa
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-        if (isset($_POST['psId'])) {
-            $psId = $_POST['psId'];
+// Proses sewa
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (isset($_POST['psId'])) {
+        $psId = $_POST['psId'];
 
-            // Cek apakah PlayStation tersedia
-            $stmt = $pdo->prepare("SELECT * FROM ps_list WHERE id = :id AND status = 'Tersedia'");
-            $stmt->execute(['id' => $psId]);
-            $ps = $stmt->fetch();
+        // Cek apakah PlayStation tersedia
+        $stmt = $conn->prepare("SELECT * FROM ps_list WHERE id = ? AND status = 'Tersedia'");
+        $stmt->bind_param('i', $psId);
+        $stmt->execute();
+        $ps = $stmt->get_result()->fetch_assoc();
 
-            if ($ps) {
-                // Ubah status menjadi 'Booked' dan simpan data sewa
-                $stmt = $pdo->prepare("UPDATE ps_list SET status = 'Booked' WHERE id = :id");
-                $stmt->execute(['id' => $psId]);
+        if ($ps) {
+            // Ubah status menjadi 'Booked' dan simpan data sewa
+            $stmt = $conn->prepare("UPDATE ps_list SET status = 'Booked' WHERE id = ?");
+            $stmt->bind_param('i', $psId);
+            $stmt->execute();
 
-                $stmt = $pdo->prepare("INSERT INTO sewa (user_id, ps_id) VALUES ((SELECT id FROM user WHERE username = :username), :psId)");
-                $stmt->execute(['username' => $currentUser, 'psId' => $psId]);
+            $stmt = $conn->prepare("INSERT INTO sewa (user_id, ps_id) VALUES ((SELECT id FROM user WHERE username = ?), ?)");
+            $stmt->bind_param('si', $currentUser, $psId);
+            $stmt->execute();
 
-                header("Refresh:0");
-                exit; 
-            } 
-        }
-
-        // Proses batal sewa
-        if (isset($_POST['batal'])) {
-            $batalId = $_POST['batalId'];
-
-            // Hapus dari tabel sewa dan ubah status PlayStation menjadi 'Tersedia'
-            $stmt = $pdo->prepare("DELETE FROM sewa WHERE ps_id = :psId AND user_id = (SELECT id FROM user WHERE username = :username)");
-            $stmt->execute(['psId' => $batalId, 'username' => $currentUser]);
-
-            $stmt = $pdo->prepare("UPDATE ps_list SET status = 'Tersedia' WHERE id = :psId");
-            $stmt->execute(['psId' => $batalId]);
             header("Refresh:0");
             exit; 
-        }
+        } 
     }
 
-    $detailPs = null;
-    if (isset($_GET['id'])) {
-        $psId = $_GET['id'];
+    // Proses batal sewa
+    if (isset($_POST['batal'])) {
+        $batalId = $_POST['batalId'];
 
-        // Ambil detail PlayStation dari database
-        $stmt = $pdo->prepare("SELECT * FROM ps_list WHERE id = :id");
-        $stmt->execute(['id' => $psId]);
-        $detailPs = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Hapus dari tabel sewa dan ubah status PlayStation menjadi 'Tersedia'
+        $stmt = $conn->prepare("DELETE FROM sewa WHERE ps_id = ? AND user_id = (SELECT id FROM user WHERE username = ?)");
+        $stmt->bind_param('is', $batalId, $currentUser);
+        $stmt->execute();
+
+        $stmt = $conn->prepare("UPDATE ps_list SET status = 'Tersedia' WHERE id = ?");
+        $stmt->bind_param('i', $batalId);
+        $stmt->execute();
+        header("Refresh:0");
+        exit; 
     }
+}
+
+$detailPs = null;
+if (isset($_GET['id'])) {
+    $psId = $_GET['id'];
+
+    // Ambil detail PlayStation dari database
+    $stmt = $conn->prepare("SELECT * FROM ps_list WHERE id = ?");
+    $stmt->bind_param('i', $psId);
+    $stmt->execute();
+    $detailPs = $stmt->get_result()->fetch_assoc();
+}
 ?>
 
 <!DOCTYPE html>
@@ -111,7 +118,7 @@
     </style>
 </head>
 <body>
-    <h2>Selamat Datang, <?= $_SESSION['login'] ?></h2>
+    <h2>Selamat Datang, <?= $currentUser ?></h2>
 
     <h2>Daftar PlayStation</h2>
     <ul>
